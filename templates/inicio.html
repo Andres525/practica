@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+<div class="form-body">
+	<div class="card">
+		<div class="card-body">
+			<div class="row">
+				<div class="col text-right">
+					<a class="btn btn-primary" href="{% url 'contacto_nuevo' %}" role="button">Agregar contacto</a>
+				</div>
+			</div>
+			<p class="text-secondary">{{size}} contacto(s) encontrados</p>
+			<div class="row d-flex justify-content-center">
+				{%for contacto in contactos %}
+				<div class="card" style="width: 15em;margin:5px">
+					{% if contacto.fotografia %}
+					<img class="card-img-top" src="{{contacto.fotografia.url}}" alt="Fotografía">
+					{% endif %}
+					<div class="card-body">
+						<h5 class="card-title">{{contacto.nombre}} {{contacto.apellidos}}</h5>
+						<p class="text-secondary">{{contacto.fecha_nacio}}</p>
+						<a class="badge badge-secondary" href="{% url 'contacto_editar' pk=contacto.pk %}">Editar</a>
+						<a class="badge badge-danger" href="{% url 'contacto_eliminar' pk=contacto.pk %}" role="button"
+							id="eliminar_{{contacto.pk}}" onclick="confirmar('eliminar_{{contacto.pk}}');">Eliminar</a>
+					</div>
+				</div>
+				{% endfor %}
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
