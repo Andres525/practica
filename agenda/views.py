@@ -1,13 +1,94 @@
-#from django.shortcuts import render
-from django.template.loader import get_template
-from django.http import HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.forms import inlineformset_factory
+from django.contrib import messages
+from .forms import ContactoForm, DireccionForm
+from .models import *
 
 
 def inicio(request):
-    template = get_template("base.html")
+	contactos = Contacto.objects.all().order_by('nombre') 
+	context = {
+		"titulo" : "Inicio", 
+		"contactos" : contactos, 
+		"size": len(contactos)
+	}
+	return render(request, "inicio.html", context)
 
-    context = {
-        "titulo": "Inicio"
+
+def contacto_nuevo(request):
+	if request.method == "POST":
+		form = ContactoForm(request.POST, request.FILES) 
+		if form.is_valid(): 
+			nuevo_contacto = form.save() 
+			return redirect('contacto_editar', pk=nuevo_contacto.pk)
+	else:
+		form = ContactoForm()
+
+	context = {
+    	"titulo":"Registrar contacto",
+    	"form":form
     }
+	return render(request, "contacto_nuevo.html", context)
 
-    return HttpResponse(template.render(context), request)
+
+def contacto_editar(request, pk):
+
+	contacto = get_object_or_404(Contacto, pk=pk)
+	direccion = Direccion.objects.filter(contacto=pk)
+	telefonos = Telefono.objects.filter(contacto=pk)
+	formset_telefono = inlineformset_factory(Contacto, Telefono, fields=("tipo", "alias", "numero"), can_delete=True, extra=0)
+
+	if request.method == "POST":
+		form_contacto = ContactoForm(request.POST, request.FILES, instance=contacto)
+		if form_contacto.is_valid(): 
+			form_contacto.save() 
+
+		if direccion.exists(): 
+			direccion = direccion[0]
+			form_direccion = DireccionForm(request.POST, instance=direccion)
+			if form_direccion.is_valid():
+				form_direccion.save()
+		else: 
+			form_direccion = DireccionForm(request.POST)
+			direccion = form_direccion.save(commit = False)
+			if form_direccion.is_valid():
+				direccion.contacto = contacto
+				direccion.save()
+
+		form_telefono = formset_telefono(request.POST, instance=contacto)#pasar POST a formset de telefonos
+		if form_telefono.is_valid(): 
+			form_telefono.save() 
+		messages.success(request, 'La información del contacto ha sido actualizada.')
+	else:
+		form_contacto = ContactoForm(instance=contacto)
+		if direccion.exists():
+			direccion = direccion[0]
+			form_direccion = DireccionForm(instance=direccion)
+		else:
+			form_direccion = DireccionForm()
+	
+	form_telefono = formset_telefono(instance=contacto)
+	
+	context = {
+    	"titulo":"Editar contacto",
+    	"contacto": contacto,
+    	"direccion": direccion,
+    	"telefonos": [(index, telefonos[index]) for index in range(0, len(telefonos))],
+    	"form_telefono": form_telefono,
+    	"ESTADOS": ESTADOS,
+    	"TIPOS_TELEFONO": TIPOS_TELEFONO,
+    }
+	return render(request, "contacto_editar.html", context)
+
+def contacto_eliminar(request, pk):
+	contacto = get_object_or_404(Contacto, pk=pk)
+	contacto.delete()
+	messages.success(request, 'El contacto fue eliminado.')
+	return redirect('inicio')
+
+def telefono_eliminar(request, pk):
+	telefono = get_object_or_404(Telefono, pk=pk)
+	contacto_pk = telefono.contacto.pk
+	telefono.delete()
+	messages.success(request, 'El teléfono fue eliminado.')
+	return redirect('contacto_editar', pk=contacto_pk)
